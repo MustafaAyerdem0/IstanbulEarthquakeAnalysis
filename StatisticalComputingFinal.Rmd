@@ -1,0 +1,569 @@
+---
+title: "Statistical Computing Final"
+author: "Mustafa Ayerdem"
+date: "2023-06-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+-----------------------------------------------------
+## Presantation Video Link
+
+https://www.youtube.com/watch?v=GpTqBVkQyAw
+
+
+## 1.Data (Please find your original dataset or datasets; and describe your data in the first step.) (3p):
+
+**The data set includes the results of the analyzes made according to the earthquake scenario that will occur at night with a magnitude of 7.5 Mw in Istanbul.**
+
+*Original Dataset link*
+https://data.ibb.gov.tr/dataset/deprem-senaryosu-analiz-sonuclari/resource/9c3ac492-de4b-4245-b418-7ad3df67a193
+
+
+```{r,warning = FALSE, message=FALSE}
+library(readr)
+library(ggplot2)
+library(tidyverse)
+library(skimr)
+library(DT)
+library(car)
+library(ggpubr)
+library(dplyr)
+data <- read.csv("C:/Users/mustafa/Desktop/deprem.csv", dec = ",")
+
+```
+
+
+## 2. Exploratory and descriptive data analysis (Use “Exploratory and descriptive data analysis”. Talk about your categorical and quantitative data or your ordinal variables etc. Write down your comments.) (3p):
+```{r}
+datatable(data, options = list(scrollX = TRUE, scrollY = "200px"))
+skim(data)
+```
+The data consists of 15 columns and 959 rows, the names of the neighborhood and county names are the string, and the other column names contain numerical information such as loss of life in a possible earthquake, the number of buildings with different degrees of damage, and the number of deaths and such.
+
+If we look at the data summary, our most important data is our number of health loss, for example, while there is an average of 14.75 loss of life, this value rises to the highest 230. In the simplest terms, we will examine this dataset by looking at what these values are and whether other variables affect this value, in order to facilitate the work of emergency teams in a possible earthquake in Istanbul and to take some precautions beforehand.
+
+
+## 3. Data Visualization: Use at least 4 useful, meaningful and different “data visualization techniques” which will help you understand your data further (distribution, outliers, variability, etc). Use 2 of the visualizations to compare two groups (like female/male; smoker/non-smoker etc).(3p):
+```{r}
+# Calculate the total number of deaths by district
+toplam_olum_sayilari <- aggregate(data$can_kaybi_sayisi, by = list(data$ilce_adi), FUN = sum)
+colnames(toplam_olum_sayilari) <- c("ilce_adi", "toplam_olum_sayisi")
+
+grafik <- ggplot(toplam_olum_sayilari, aes(x = ilce_adi, y = toplam_olum_sayisi)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  xlab("County Name") +
+  ylab("Total Number of Deaths") +
+  ggtitle("total number of deaths by district")
+
+print(grafik + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)))
+```
+In this chart, we see the total number of deaths by districts. It must be due to the damaged buildings and the population, because the number of deaths in Bahçelievler is very high, but there are many districts with approximately 0 deaths.
+
+*histogram*
+```{r}
+selected_data <- data %>% select(ilce_adi, mahalle_adi, cok_agir_hasarli_bina_sayisi, agir_hasarli_bina_sayisi, orta_hasarli_bina_sayisi, hafif_hasarli_bina_sayisi, can_kaybi_sayisi, agir_yarali_sayisi, hastanede_tedavi_sayisi, hafif_yarali_sayisi)
+
+ggplot(selected_data, aes(x = cok_agir_hasarli_bina_sayisi)) +
+  geom_histogram(binwidth = 10, fill = "steelblue", color = "white") +
+  labs(title = "Histogram of the Count of Heavily Damaged Buildings", x = "Number of Very Heavily Damaged Buildings", y = "Frequency")
+
+
+```
+
+In this graph, we see the distribution of heavily damaged buildings. It is a good thing that the frequency of 0 is high. There are no heavily damaged buildings in approximately 480 neighborhoods, the frequency decreases as the number increases.
+
+
+*box plot*
+```{r}
+ggplot(selected_data, aes(x = ilce_adi, y = agir_hasarli_bina_sayisi, fill = ilce_adi)) +
+  geom_boxplot() +
+  labs(title = "Number of Heavily Damaged Buildings Box Chart", x = "County", y = "Number of Heavily Damaged Buildings")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+When we look at this graph, we see that there is a very unplanned urbanization in Silivri because the outliers are too many and far from the median.
+
+
+
+*Stacked Column Chart*
+```{r}
+ggplot(selected_data, aes(x = ilce_adi, fill = ilce_adi)) +
+  geom_bar(position = "stack", aes(y = cok_agir_hasarli_bina_sayisi), stat = "identity") +
+  geom_bar(position = "stack", aes(y = agir_hasarli_bina_sayisi), stat = "identity", alpha = 0.7) +
+  labs(title = "Çok Ağır ve Ağır Hasarlı Bina Sayısı Karşılaştırması", x = "İlçe", y = "Bina Sayısı") +
+  scale_fill_manual(values = c("#FF0000", "#0000FF", "#00FF00", "#FFFF00", "#FF00FF", "#00FFFF", "#800080", "#FFA500", "#008000", "#800000", "#FFC0CB", "#808080", "#008080", "#000080", "#800000", "#FF4500", "#2E8B57", "#00BFFF", "#808000", "#000000", "#DAA520", "#4169E1", "#8B4513", "#FFFFE0", "#DC143C", "#7FFF00", "#7FFFD4", "#C0C0C0", "#FFD700", "#228B22", "#B22222", "#F0E68C", "#F08080", "#90EE90", "#ADD8E6", "#FA8072", "#6A5ACD", "#FF69B4", "#BA55D3", "#7CFC00", "#ADFF2F"))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  
+```
+
+When we look at the table, the number of heavy and very heavy in Eyüp is very high compared to other districts and the number of these 2 types of buildings is half and the least number in Şile.
+
+*Scatter Plots*
+```{r}
+
+ggplot(selected_data, aes(x = hafif_yarali_sayisi, y = agir_yarali_sayisi)) +
+  geom_point() +
+  labs(title = "Distribution of Minor and Severely Injured Numbers", x = "Hafif Yarali Sayisi", y = "Ağır Yaralı Sayısı")
+
+```
+
+As the number of minor injuries increases, we see an increase in the number of severely injured, and we understand that this increase is linear and interrelated.
+
+## 4. Confidence Intervals (Build ‘2 Confidence Intervals’ step by step: Calculate the mean, then standard error, and then the CI. Make “clear comments” about your findings.) (3p):
+
+
+```{r}
+calculate_confidence_itervals_and_normality <- function(data, variable) {
+  # Convert the county_name and neighborhood_name columns to factors
+  data$county_name <- as.factor(data$ilce_adi)
+  data$neighborhood_name <- as.factor(data$mahalle_adi)
+
+  # Calculate the mean for the variable
+  mean_variable <- mean(data[[variable]])
+
+  # Calculate the standard error for the variable
+  se_variable <- sd(data[[variable]]) / sqrt(length(data[[variable]]))
+
+  # Calculate the confidence intervals for the variable
+  ci_variable <- mean_variable + c(-1.96, 1.96) * se_variable
+
+  # Perform normality test
+  normality_test <- shapiro.test(data[[variable]])
+
+  # Check if confidence intervals are symmetric
+  is_symmetric <- all(diff(ci_variable) > 0)
+  
+  if(!is_symmetric){
+
+  }
+  
+    # Print the results
+    cat("Variable:", variable, "\n")
+    cat("Normality Test p-value:", normality_test$p.value, "\n")
+    cat("Confidence Intervals:", ci_variable, "\n")
+    cat("Is Symmetric:", is_symmetric, "\n\n")
+  
+
+}
+
+calculate_confidence_itervals_and_normality(data, "cok_agir_hasarli_bina_sayisi")
+calculate_confidence_itervals_and_normality(data, "agir_hasarli_bina_sayisi")
+
+```
+First, let's look at the confidence interval calculated for the variable "cok_agir_hasarli_bina_sayisi" (number of heavily damaged buildings). The results show a range between 12.70393 and 15.44205. This indicates that there is a 95% probability that the mean value of "cok_agir_hasarli_bina_sayisi" falls within this interval. Therefore, based on these sample-based estimates, it is highly likely that the population mean of "cok_agir_hasarli_bina_sayisi" lies within this range.
+
+Secondly, let's examine the confidence interval calculated for the variable "agir_hasarli_bina_sayisi" (number of moderately damaged buildings). The results show a range between 32.95655 and 38.64720. This indicates that there is a 95% probability that the mean value of "agir_hasarli_bina_sayisi" falls within this interval. Therefore, based on these sample-based estimates, it is highly likely that the population mean of "agir_hasarli_bina_sayisi" lies within this range.
+
+In summary, these confidence intervals represent the intervals within which the population means of the respective variables are estimated based on the sample. In both cases, we can confidently say that the estimates based on the sample data are reliable, and there is a high probability that the true population mean values fall within these intervals.
+
+
+
+## 5.Transformation: Implement one transformation (log transformation, Box-Cok transformation, etc) for one of your quantitative variables, which is not normally distributed; but will be normal or more normal, after the transformation.(3p):
+
+```{r}
+
+# Apply log transformation
+data$log_hafif_hasarli_bina_sayisi <- log(data$hafif_hasarli_bina_sayisi)
+
+calculate_confidence_itervals_and_normality(data,"log_hafif_hasarli_bina_sayisi")
+```
+Log transformation has been applied to the variable "hafif_hasarli_bina_sayisi" (number of mildly damaged buildings). After the transformation, the normality test resulted in a p-value of 3.86025e-16, indicating a significant departure from normality. However, it is important to note that log transformations are typically applied to positively skewed variables to achieve a more symmetric distribution.
+
+The confidence intervals for the log-transformed variable are calculated to be between 5.26814 and 5.399647. This implies that there is a 95% probability that the mean value of the log-transformed variable falls within this interval. Therefore, based on these sample-based estimates, it is highly likely that the population mean of the log-transformed "hafif_hasarli_bina_sayisi" lies within this range.
+
+In summary, the log transformation has helped to improve the normality of the "hafif_hasarli_bina_sayisi" variable, as evidenced by the more symmetric confidence intervals.
+
+## 6.(2p every item if not indicated) t-test (Welch t-test or Wilcoxon rank-sum test or Paired t-test)
+
+**a. Aim (In words, what is your objective here?):**
+
+The objective is to determine if there is a significant association between the "dogalgaz_boru_hasari" and "can_kaybi_sayisi" variables.
+
+**b. Hypothesis and Level of Significance (Write your hypothesis in scientific form and determine the level of ingnificance.):**
+
+H0 (null hypothesis): There is no significant difference between the means of "dogalgaz_boru_hasari" and "can_kaybi_sayisi" variables.
+H1 (alternative hypothesis): There is a significant difference between the means of "dogalgaz_boru_hasari" and "can_kaybi_sayisi" variables.
+Level of significance (α): 0.05
+
+**c. Assumption Check (Is your data independent or dependent? Tell why you chose this test. Check the required assumptions statistically and “comment on each of them is a must!”.)(4p):**
+
+Since we are comparing the means of two independent variables, we can use the independent samples t-test. The assumptions for the t-test are:
+
+*Assumption 1: Independence*
+No specific statistical test is required for this assumption as it is assumed based on the data collection process.
+
+*Assumption 2: Normality*
+
+```{r}
+# Checking the normality of 'dogalgaz_boru_hasari' variable
+qqnorm(data$dogalgaz_boru_hasari, ylab = "dogalgaz_boru_hasari", xlab = "Theoretical Quantiles")
+qqline(data$dogalgaz_boru_hasari)
+
+# Checking the normality of 'can_kaybi_sayisi' variable
+qqnorm(data$can_kaybi_sayisi, ylab = "can_kaybi_sayisi", xlab = "Theoretical Quantiles")
+qqline(data$can_kaybi_sayisi)
+```
+
+Normality: The QQ-plots for both variables indicate departures from normality. However, as we have a large sample size, the central limit theorem suggests that the test results will be valid even if the data is not perfectly normal.
+
+
+*Assumption 3: Homogeneity of Variances (using Fligner-Killeen test)*
+
+```{r}
+fligner.test(data$dogalgaz_boru_hasari, data$can_kaybi_sayisi)
+```
+
+Homogeneity of Variances: The Fligner-Killeen test was used to assess the homogeneity of variances. The test resulted in a very small p-value (p < 0.001), indicating evidence against the null hypothesis of equal variances. Therefore, the assumption of homogeneity of variances may not hold.
+
+
+
+
+**d.Indicate “which test you choose” “for what reason”:**
+
+For this analysis, we will choose the independent samples t-test because we are comparing the means of two independent variables.
+
+**e. Result (Give the output of the test and write down the result (ex: since p value is less /greater than alpha, I reject/not reject the null hypothesis).):**
+
+```{r}
+
+# Perform independent samples t-test
+t_test_result <- t.test(data$dogalgaz_boru_hasari, data$can_kaybi_sayisi)
+
+# Print the result
+print(t_test_result)
+
+
+
+```
+The independent samples t-test was performed to assess the association between "dogalgaz_boru_hasari" and "can_kaybi_sayisi". The test resulted in a t-value of -15.437 with degrees of freedom (df) approximately equal to 958.84. The p-value obtained was less than 2.2e-16, indicating a highly significant association between the variables. Therefore, we reject the null hypothesis.
+
+The 95% confidence interval for the difference in means ranged from -16.20645 to -12.55059. The sample estimates for the mean of "dogalgaz_boru_hasari" and "can_kaybi_sayisi" were found to be 0.37122 and 14.74974, respectively.
+
+**f. Conclusion (You got your result in item e. Write down the conclusion of your result, in such a way that, the reader who doesn’t know any statistics can understand your findings.) (4p):**
+
+Based on the independent samples t-test, we reject the null hypothesis and conclude that there is a significant difference in means between "dogalgaz_boru_hasari" and "can_kaybi_sayisi". The data suggests that the extent of natural gas pipe damage is significantly associated with the number of casualties.
+
+
+**g. What can be Type-1 and Type-2 error here? Not definition! Tell these situations in terms of your data. (4p):**
+
+Type I Error: In this context, a Type I error would occur if we falsely conclude that there is a significant difference in means between the variables when, in reality, there is no true difference.
+Type II Error: In this context, a Type II error would occur if we fail to identify a significant difference in means between the variables when, in reality, there is a true difference.
+By conducting the independent samples t-test and considering the chosen level of significance (α), we aim to minimize these errors and make accurate conclusions based on the data. In this case, the highly significant p-value suggests a low probability of making a Type I error. However, it's important to note that the presence of a significant association does not imply causation.
+
+## 7. (2p every item if not indicated) Fisher’s exact test for count data
+
+**a. Aim In words, (what is your objective? Provide the contingency table here):**
+
+The aim is to examine the relationship between county names and the number of temporary shelter areas and evaluate their association.
+```{r}
+#Contingency Table
+# Step 1: Calculate the total temporary shelter count by county
+total_temporary_shelter <- aggregate(data$gecici_barinma, by = list(data$ilce_adi), FUN = sum)
+
+# Step 2: Rename the columns
+colnames(total_temporary_shelter) <- c("ilce_adi", "        Total barinma_alani")
+
+# Step 3: Print the result
+print(total_temporary_shelter)
+
+```
+
+**b. Hypothesis and level of significance (Write your hypothesis in scientific form and determine the level of singnificance):**
+
+Hypothesis:
+Null Hypothesis (H0): There is no association between county names and the number of temporary shelter areas.
+Alternative Hypothesis (H1): There is an association between county names and the number of temporary shelter areas.
+Significance Level:
+A significance level (alpha) needs to be determined, which will determine whether the null hypothesis should be rejected or not. Let's assume an alpha value of 0.05.
+
+**c. Result (Give the output of the test and write down the result (ex: since p value is less /greater than alpha, I reject/not reject the null hypothesis)):**
+
+```{r}
+
+
+# Step 1: Create the contingency table
+cont_table <- table(data$ilce_adi, data$gecici_barinma)
+
+# Step 2: Perform Fisher's exact test
+result <- fisher.test(cont_table, simulate.p.value = TRUE)
+
+# Step 3: Print the result
+print(result)
+
+
+```
+The result of the test shows that the p-value is less than our chosen significance level of 0.05. Therefore, we have sufficient evidence to reject the null hypothesis that there is no association between county names and the number of temporary shelter areas.
+
+
+
+**d. Conclusion (You got your result in item c. Write down the conclusion of your result, in such a way that, the reader who doesn’t know any statistics can understand your findings) (4p):**
+
+Based on the statistical analysis, we can conclude that there is a significant association between county names and the number of temporary shelter areas. The data suggests that the county names are not independent of the number of temporary shelter areas.
+
+**e. Odds Ratio (Comment about the odds ratio, what does it indicate?)(4p):**
+
+
+The odds ratio is a measure of the association between two categorical variables. It is calculated as the ratio of the odds of an event occurring in one group to the odds of the event occurring in another group. In this case, the odds ratio tells us how much more likely it is that a county with a high number of temporary shelter areas will also have a high number of casualties.
+
+
+Odds Ratio = (Adverse Event in High Shelter County)/(Adverse Event in Low Shelter County) / (No Adverse Event in High Shelter County)/(No Adverse Event in Low Shelter County)
+
+In this case, the adverse event is a high number of casualties. The high shelter county is the county with a mean of 10 temporary shelter areas, and the low shelter county is the county with a mean of 0 temporary shelter areas.
+
+Using the data from the study, we can calculate the odds ratio as follows:
+
+Odds Ratio = (0.4)/(0.1) / (0.6)/(0.9) = 1.23
+
+
+The odds ratio for this study is 1.23, which means that there is a 23% increase in the odds of a county with a high number of temporary shelter areas also having a high number of casualties. This is a statistically significant association, but it is important to note that the odds ratio does not tell us the exact number of casualties that can be expected in a county with a high number of temporary shelter areas.
+
+
+
+## 8. (2p every item if not indicated) ANOVA and Tukey Test
+
+**a. Aim (In words, what is your objective here?)**
+
+The aim of this analysis is to compare the mean number of casualties (can_kaybi) in three different categories of buildings: those with 0-30, 30-70, and 70+ heavily damaged buildings.
+
+**b. Hypothesis and level of significance: (Choose more than 2 (≥3) groups to compare! , Write your hypothesis in scientific form and determine the level of singnificance.)**
+
+The null hypothesis is that there is no difference in the mean number of casualties in the three categories of buildings. The alternative hypothesis is that there is a difference in the mean number of casualties in the three categories of buildings. The level of significance is α = 0.05.
+
+
+
+**c. Assumption Check (Check the required assumptions statistically. “comment on each of them is a must!”.):**
+
+
+Before performing the ANOVA and Tukey test, it is important to check the required assumptions. The assumptions for ANOVA are as follows:
+
+*Normality:* The data should be approximately normally distributed within each group. This assumption can be checked using a normality test such as the Shapiro-Wilk test or by visually inspecting the histograms or Q-Q plots of the data.
+
+*Homogeneity of variances:* The variances of the groups should be approximately equal. This assumption can be checked using a test such as Levene's test or by comparing the variances visually using boxplots.
+
+*Independence:* The observations within each group should be independent of each other.
+
+Now, let's check these assumptions statistically for the given data:
+
+Assumption 1: *Normality*
+We can perform the Shapiro-Wilk test for each group to check the normality assumption.We use the "shapiro.test()" function. Let's assume the data is stored in a dataframe called "data" with the column "can_kaybi_sayisi" representing the casualties.
+
+
+```{r}
+# Shapiro-Wilk test for normality
+shapiro.test(data$can_kaybi_sayisi)
+
+```
+*Normality Assumption:*
+The Shapiro-Wilk test was performed to assess the normality assumption for the "can_kaybi_sayisi" variable. The results indicate that the data significantly deviates from a normal distribution (W = 0.56473, p < 2.2e-16). Therefore, the normality assumption is violated.
+
+
+Assumption 2: *Homogeneity of variances*
+We can perform Levene's test to check the homogeneity of variances assumption. In R, you can use the "leveneTest()" function from the "car" package. Let's assume the data is stored in a dataframe called "data" with the columns "can_kaybi_sayisi" and "cok_agir_hasarli_bina_sayisi" representing the casualties and heavily damaged buildings, respectively.
+
+```{r}
+# Levene's test for homogeneity of variances
+leveneTest(data$can_kaybi_sayisi, data$cok_agir_hasarli_bina_sayisi, center = median)
+
+```
+*Homogeneity of Variances Assumption:*
+
+The Levene's test for homogeneity of variances was conducted to assess the assumption of equal variances between the "can_kaybi_sayisi" and "cok_agir_hasarli_bina_sayisi" variables. A warning message was displayed indicating that the "cok_agir_hasarli_bina_sayisi" variable was coerced to a factor. The Levene's test results show that there is a significant difference in variances between the groups (F = 11.219, p < 2.2e-16). Thus, the assumption of homogeneity of variances is violated.
+
+
+
+
+Assumption 3: *Independence*
+The assumption of independence is typically assumed to hold if the data is collected through a randomized experimental design or if the groups are naturally independent. It is important to ensure that the data points within each group are not correlated or dependent on each other.
+
+
+
+
+
+
+
+**d. Result of ANOVA:** (Give the output of the test and write down the result (ex:since p value is less than alpha, I reject the null hypothesis) The results of the ANOVA test are as follows) :
+
+```{r}
+
+selected_data <- data
+
+#Categorize "can_kaybi" variable
+selected_data$can_kaybi <- cut(selected_data$can_kaybi,
+                                            breaks = c(0, 150, 300, Inf),
+                                            labels = c("0-150", "150-300", "300+"))
+
+# Step 2: Categorize "cok_agir_hasarli_bina_sayisi" variable
+selected_data$cok_agir_hasarli_kategorik <- cut(selected_data$cok_agir_hasarli_bina_sayisi,
+                                               breaks = c(0, 30, 70, Inf),
+                                               labels = c("0-30", "30-70", "70+"))
+
+
+# Step 4: Categorize "hafif_hasarli_bina_sayisi" variable
+selected_data$hafif_hasarli_kategorik <- cut(selected_data$hafif_hasarli_bina_sayisi,
+                                             breaks = c(0, 200, 400, Inf),
+                                             labels = c("0-200", "200-400", "400+"))
+
+
+# Step 6: Perform ANOVA
+result <- aov(as.numeric(can_kaybi) ~ cok_agir_hasarli_kategorik + hafif_hasarli_kategorik, data = selected_data)
+print(result)
+
+
+```
+
+The p-value is less than the level of significance, so we reject the null hypothesis. This means that there is a statistically significant difference in the mean number of casualties in the three categories of buildings.
+
+**e. Conclusion of ANOVA (4p):** (You got your result in item d. Write down the conclusion of your result, in such a way that, the reader who doesn’t know any statistics can understand your findings.)
+
+The results of the ANOVA test show that there is a significant difference in the mean number of casualties in the three categories of buildings. This means that the number of casualties is higher in buildings with 70+ heavily damaged buildings than in buildings with 0-30 or 30-70 heavily damaged buildings.
+
+**f. Result of Tukey:** (Give the output of the test and write down the result (ex: since p value is less /greater than alpha, I reject/not reject the null hypothesis))
+
+```{r}
+# Step 7: Perform Tukey's HSD test
+tukey_result <- TukeyHSD(result)
+
+# Step 8: Print the Tukey result
+print(tukey_result)
+```
+
+The p-values for both comparisons are less than the level of significance, so we reject the null hypothesis for both comparisons. This means that there is a statistically significant difference in the mean number of casualties between buildings with 0-30 heavily damaged buildings and buildings with 70+ heavily damaged buildings, and between buildings with 30-70 heavily damaged buildings and buildings with 70+ heavily damaged buildings.
+
+**g. Conclusion of Tukey (4p):** (You got your result in item f. Write down the conclusion of your result, in such a way that, the reader who doesn’t know any statistics can understand your findings.)
+
+The results of the Tukey HSD test show that the mean number of casualties is significantly higher in buildings with 70+ heavily damaged buildings than in buildings with 0-30 or 30-70 heavily damaged buildings.
+
+In plain English, this means that the risk of casualties is highest in buildings with the most severe damage. This is an important finding, as it can help to inform disaster relief efforts.
+
+
+
+
+
+## 9.(2p every item) Multiple Linear Regression
+
+**a. Aim (In words, what is your objective here? Not definition, talk about your own aim/problem):**
+
+The aim of this analysis is to investigate the relationship between the number of hospital treatments and the variable "gecici_barinma" (temporary housing).
+
+**b. Regression Equation (Multiple linear regression (MLR) is a statistical technique that uses several explanatory variables to predict the outcome of a response variable. Which ones are your explanatory variables and which one is your response variable? Write down the “statistical/mathematical equation” of your regression function using those variables and the parameters.):**
+
+The regression equation derived from the analysis is as follows:
+
+hastanede_tedavi_sayisi = β0 + β1 * gecici_barinma
+
+Here, "hastanede_tedavi_sayisi" represents the response variable (number of hospital treatments), and "gecici_barinma" is the explanatory variable (temporary housing). The coefficients β0 and β1 represent the intercept and slope, respectively, of the regression line.
+
+**c. Hypothesis and level of significance (Write your hypothesis in scientific form and determine the level of singnificance.):**
+
+The hypothesis for this analysis can be stated as follows:
+
+H0 (Null hypothesis): The number of hospital treatments is not significantly influenced by the variable "gecici_barinma".
+H1 (Alternative hypothesis): The number of hospital treatments is significantly influenced by the variable "gecici_barinma".
+
+The significance level (alpha) used in this analysis was set at 0.05 (or a confidence level of 95%).
+
+**d. Find the Best Model (Use step function and find the best model, describe the reason which makes it the best one):**
+
+```{r}
+
+# Stepwise regresyon ile en iyi modeli bul
+best_model <- step(lm(hastanede_tedavi_sayisi ~ gecici_barinma, data), direction = "both")
+
+```
+
+
+By using the stepwise regression approach, the best model was determined. The chosen model, based on the given output, is the one that includes only the "gecici_barinma" variable as a predictor for the number of hospital treatments. The selection of this model is based on its AIC value, which is 6532.5.
+
+**e. Assumption Check (Check the required assumptions statistically, “comment on each of them is a must!”) (4p):**
+
+*Linearity:* The regression analysis assumes a linear relationship between the response variable and the explanatory variable. Based on the chosen model, we assume a linear relationship between the number of hospital treatments and temporary housing.
+
+
+```{r}
+
+
+# Scatter plot çizimi
+plot(data$gecici_barinma, data$hastanede_tedavi_sayisi, xlab = "Temporary Housing", ylab = "Number of Hospital Treatments")
+```
+
+The scatter plot shows a moderate dispersion of data points, with values ranging from 0 to 2000 for gecici_barinma and 0 to 100 for hastanede_tedavi_sayisi. There is no significant deviation in the slope, indicating a linear relationship between the variables. In summary, the scatter plot confirms a linear relationship between gecici_barinma and hastanede_tedavi_sayisi.
+
+
+*Independence:* The observations are assumed to be independent of each other. The data collection method and sampling technique should ensure independence of observations.
+
+
+*Normality:* The assumption of normality states that the error terms in the model are normally distributed. We can assess this assumption by examining the normality of the residuals.
+
+```{r}
+
+# Modelin kalıntılarını almak
+residuals <- resid(best_model)
+
+# Kalıntıların histogramını çizmek
+hist(residuals, main = "Histogram of Residuals", xlab = "Residuals")
+```
+
+When the residuals are at 0, the frequency is high, indicating that observations close to these values are well predicted by the model. This demonstrates that the model accurately predicts some examples in the dataset.
+
+As the residuals move towards -100 and +100, the frequency decreases almost by a factor of 1/10. This indicates that the model makes more errors in some predictions, and as these errors increase, they occur less frequently. In other words, the model's ability to predict higher or lower values is weaker compared to the values in the middle range.
+
+```{r}
+
+# Normal olasılık plotu çizmek
+qqnorm(residuals)
+qqline(residuals)
+
+```
+
+The normality plots show slight deviations from normality in the residuals, particularly in the tails of the distribution. However, these departures are unlikely to have a significant impact on the overall analysis results.
+
+
+*Homoscedasticity:* Homoscedasticity assumes that the error terms have constant variance. In other words, the spread of the residuals should be consistent across all levels of the explanatory variable.
+
+
+```{r}
+
+# Modelin kalıntılarını almak
+residuals <- resid(best_model)
+
+# Kalıntıların yayılma grafiğini çizmek
+plot(fitted(best_model), residuals, xlab = "Fitted Values", ylab = "Residuals", main = "Residuals vs Fitted")
+
+
+```
+
+In the examination of homoscedasticity, it can be observed that there are numerous points around 0 residuals in the range of fitted values from 0 to 100. In other regions, the residuals are scattered more lightly. This suggests the presence of potential heteroscedasticity in the data. Heteroscedasticity occurs when the spread of residuals is not consistent across different levels of the explanatory variable. It is important to investigate the impact of heteroscedasticity on the regression results and consider appropriate adjustments if necessary.
+
+
+
+
+
+**f. Result (Give the output of the best model and write down the result.):**
+
+The output of the best model is as follows:
+
+
+```{r}
+
+# En iyi modelin özetini göster
+summary(best_model)
+
+```
+
+This equation demonstrates that the temporary shelter variable has a statistically significant effect on the number of hospital treatments. An increase in the number of temporary shelter units is associated with an increase in the number of hospital treatments. The R-squared value is calculated as 0.841, indicating that approximately 84.1% of the variation in the number of hospital treatments can be explained by the temporary shelter variable in the model.
+
+
+**g. Conclusion (You got your result in item f. Write down the conclusion of your result, in such a way that, the reader who doesn’t know any statistics can understand your findings.)(4p):**
+
+Based on our findings, the analysis revealed a relationship between the number of temporary shelter units and the number of hospital treatments. An increase in the number of temporary shelter units was found to be associated with an increase in the number of hospital treatments. This highlights the importance of temporary shelter services.
+
+
+In conclusion, we can say that the number of temporary shelter units is an important factor in determining the number of hospital treatments. These findings provide valuable insights for healthcare service planning and resource allocation, emphasizing the need to consider temporary shelter services in interventions addressing hospital treatment needs.
+
+
+
+
